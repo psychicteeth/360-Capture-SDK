@@ -375,7 +375,7 @@ namespace FBCapture {
       return status;
     }
 
-    FBCAPTURE_STATUS EncoderMain::muxingData(PROJECTIONTYPE projectionType, STEREO_MODE stereMode, bool is360) {
+    FBCAPTURE_STATUS EncoderMain::muxingData(PROJECTIONTYPE projectionType, STEREO_MODE stereMode, bool is360, int fps) {
       FBCAPTURE_STATUS status = FBCAPTURE_STATUS_OK;
       if (!this->movingToMuxingStage || this->stopEncProcess)
         return status;
@@ -405,7 +405,7 @@ namespace FBCapture {
           }
         }
         else {
-          status = this->mp4Muxer->muxingMedia(this->prevVideoH264, this->prevAudioAAC, projectionType, stereMode, is360);
+          status = this->mp4Muxer->muxingMedia(this->prevVideoH264, this->prevAudioAAC, projectionType, stereMode, is360, fps);
           if (status != FBCAPTURE_STATUS_OK) {
             this->stopEncProcess = true;
             return status;

@@ -32,7 +32,7 @@ namespace FBCapture {
 			return newFullStr;
 		}
 
-		FBCAPTURE_STATUS MP4Muxer::muxingMedia(const wstring& videoFile, const string& audioFile, PROJECTIONTYPE projectionType, STEREO_MODE stereoMode, bool is360) {
+		FBCAPTURE_STATUS MP4Muxer::muxingMedia(const wstring& videoFile, const string& audioFile, PROJECTIONTYPE projectionType, STEREO_MODE stereoMode, bool is360, int fps) {
 			FBCAPTURE_STATUS status = FBCAPTURE_STATUS_OK;
 			Utils utils;
 			Metadata md;
@@ -54,7 +54,7 @@ namespace FBCapture {
 																	 0.0f,
 																	 0.0f,
 																	 NO_DURATION_SPECIFIED,
-																	 UNKNOWN_FRAMES_PER_SECOND,
+																	 fps,
 																	 (eVideoRotationMode)VIDEO_ROTATION_MODE_NO_ROTATION,
 																	 false);
 

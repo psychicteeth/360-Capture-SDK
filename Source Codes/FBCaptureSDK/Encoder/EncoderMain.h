@@ -76,7 +76,7 @@ namespace FBCapture {
 			FBCAPTURE_STATUS startEncoding(const void* texturePtr, const TCHAR* fullSavePath, bool isLive, int bitrate, int fps, bool needFlipping);
 			FBCAPTURE_STATUS audioEncoding(bool useVRAudioEndpoint, bool enabledAudioCapture, bool enabledMicCapture, VRDeviceType vrDevice, LPCWSTR useMicIMMDeviceId);
 			FBCAPTURE_STATUS stopEncoding(bool forceStop);
-			FBCAPTURE_STATUS muxingData(PROJECTIONTYPE projectionType, STEREO_MODE stereMode, bool is360);
+			FBCAPTURE_STATUS muxingData(PROJECTIONTYPE projectionType, STEREO_MODE stereMode, bool is360, int fps);
 			FBCAPTURE_STATUS saveScreenShot(const void* texturePtr, const TCHAR* fullSavePath, bool is360);
 			FBCAPTURE_STATUS startLiveStream(const TCHAR* streamUrl);
 			GRAPHICS_CARD checkGPUManufacturer();

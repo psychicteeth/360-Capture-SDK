@@ -46,7 +46,7 @@ namespace FBCapture {
 			string replaceString(const string& inputStr, const string& searchStr, const string& replaceStr);
 
 		public:
-			FBCAPTURE_STATUS muxingMedia(const wstring& videoFile, const string& audioFile, PROJECTIONTYPE projectionType, STEREO_MODE stereoMode, bool is360);
+			FBCAPTURE_STATUS muxingMedia(const wstring& videoFile, const string& audioFile, PROJECTIONTYPE projectionType, STEREO_MODE stereoMode, bool is360, int fps);
 		};
 	}
 }

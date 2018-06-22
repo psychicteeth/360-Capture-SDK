@@ -73,6 +73,7 @@ namespace FBCapture {
 			uint32_t height_;
 			PROJECTIONTYPE projectionType_;
 			STEREO_MODE stereoMode_;
+			bool fixedFrameDeltaTime_; // set to true if frames passed in are a fixed time apart. Frames are held in a queue if necessary and encoded from there.
 		};
 
 		// From User
@@ -155,7 +156,7 @@ namespace FBCapture {
 			FBCAPTURE_STATUS setGraphicsDeviceD3D11(ID3D11Device* device);
 
 			FBCAPTURE_STATUS setLiveCaptureSettings(int width, int height, int frameRate, int bitRate, float flushCycleStart, float flushCycleAfter, const TCHAR* streamUrl, bool is360, bool verticalFlip, bool horizontalFlip, PROJECTIONTYPE projectionType, STEREO_MODE stereoMode);
-			FBCAPTURE_STATUS setVodCaptureSettings(int width, int height, int frameRate, int bitRate, const TCHAR* fullSavePath, bool is360, bool verticalFlip, bool horizontalFlip, PROJECTIONTYPE projectionType, STEREO_MODE stereoMode);
+			FBCAPTURE_STATUS setVodCaptureSettings(int width, int height, int frameRate, int bitRate, const TCHAR* fullSavePath, bool is360, bool verticalFlip, bool horizontalFlip, PROJECTIONTYPE projectionType, STEREO_MODE stereoMode, bool fixedFrameDeltaTime);
 			FBCAPTURE_STATUS setPreviewCaptureSettings(int width, int height, int frameRate, bool is360, bool verticalFlip, bool horizontalFlip);
 			FBCAPTURE_STATUS setScreenshotSettings(int width, int height, const TCHAR* fullsavePath, bool is360, bool verticalFlip, bool horizontalFlip);
 
@@ -300,6 +301,8 @@ namespace FBCapture {
 			bool captureTextureReceieved_ = {};
 			bool screenshotTextureReceieved_ = {};
 			bool unsupportedEncodingEnv_ = {true};
+			bool frameReceived = false;
+			int totalFrames = 0;
 
 			typedef BOOL(WINAPI *LPFN_ISWOW64PROCESS) (HANDLE, PBOOL);
 			LPFN_ISWOW64PROCESS fnIsWow64Process;

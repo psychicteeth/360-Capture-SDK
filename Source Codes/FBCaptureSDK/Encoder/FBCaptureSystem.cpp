@@ -221,8 +221,8 @@ namespace FBCapture {
 		}
 
 		FBCAPTURE_STATUS FBCaptureSystem::setVodCaptureSettings(int width, int height, int frameRate, int bitRate, 
-																														const TCHAR* fullSavePath, bool is360, bool verticalFlip, bool horizontalFlip, 
-																														PROJECTIONTYPE projectionType, STEREO_MODE stereoMode) {
+			const TCHAR* fullSavePath, bool is360, bool verticalFlip, bool horizontalFlip, 
+			PROJECTIONTYPE projectionType, STEREO_MODE stereoMode, bool fixedFrameDeltaTime) {
 			pVodCaptureSettings_.reset(new VodCaptureSettings);
 			pVodCaptureSettings_->width_ = width;
 			pVodCaptureSettings_->height_ = height;
@@ -235,6 +235,7 @@ namespace FBCapture {
 			pVodCaptureSettings_->horizontalFlip_ = horizontalFlip;
 			pVodCaptureSettings_->projectionType_ = projectionType;
 			pVodCaptureSettings_->stereoMode_ = stereoMode;
+			pVodCaptureSettings_->fixedFrameDeltaTime_ = fixedFrameDeltaTime;
 			return FBCAPTURE_STATUS_OK;
 		}
 
@@ -700,6 +701,7 @@ namespace FBCapture {
 			FBCAPTURE_STATUS result = pGraphicsDeviceCapture_->captureTextureToSharedHandle(texturePtr);
 			if (result == FBCAPTURE_STATUS_OK) {
 				captureTextureReceieved_ = true;
+				frameReceived = true;
 			} else {
 				captureFailed(result);
 				stopCapture();
@@ -791,12 +793,14 @@ namespace FBCapture {
 			}
 
 			FBCAPTURE_STATUS status = pEncoder_->stopEncoding(true);
+
+
 			if (status != FBCAPTURE_STATUS_OK) {
 				DEBUG_ERROR_VAR("Final stop encoding failed", std::to_string(status));
 				captureFailed(status);
 			}
 			if (status == FBCAPTURE_STATUS_OK && captureInProgressType_ == FBCaptureType::kVod) {
-				status = pEncoder_->muxingData(pVodCaptureSettings_->projectionType_, pVodCaptureSettings_->stereoMode_, pVodCaptureSettings_->is360_);
+				status = pEncoder_->muxingData(pVodCaptureSettings_->projectionType_, pVodCaptureSettings_->stereoMode_, pVodCaptureSettings_->is360_, pVodCaptureSettings_->frameRate_);
 			}
 			if (status != FBCAPTURE_STATUS_OK) {
 				DEBUG_ERROR_VAR("Final vod muxing failed", std::to_string(status));
@@ -907,8 +911,7 @@ namespace FBCapture {
 		}
 
 		bool FBCaptureSystem::activateCameraDevice(std::lock_guard<std::mutex> &lock) {
-			HRESULT hr = pCameraDevices_->activateDevice(pCameraSettings_->cameraDeviceIndexChosen_,
-																									 &pCameraOverlay_->pCameraMediaSource_);
+			HRESULT hr = pCameraDevices_->activateDevice(pCameraSettings_->cameraDeviceIndexChosen_, &pCameraOverlay_->pCameraMediaSource_);
 			if (FAILED(hr))
 				return false;
 			pCameraOverlay_->pCameraReader_.reset(
@@ -924,8 +927,7 @@ namespace FBCapture {
 				}
 			}
 			pCameraOverlay_->pCameraReader_.reset(nullptr);
-			HRESULT hr = pCameraDevices_->deactivateDevice(pCameraSettings_->cameraDeviceIndexChosen_,
-																										 pCameraOverlay_->pCameraMediaSource_);
+			HRESULT hr = pCameraDevices_->deactivateDevice(pCameraSettings_->cameraDeviceIndexChosen_, pCameraOverlay_->pCameraMediaSource_);
 			pCameraOverlay_.reset(nullptr);
 			return SUCCEEDED(hr);
 		}
@@ -1019,8 +1021,8 @@ namespace FBCapture {
 			std::lock_guard<std::mutex> audioLock(audioCaptureMutex_);
 
 			FBCAPTURE_STATUS status = pEncoder_->audioEncoding(vrDeviceRequested_, audioEnabledDuringCapture_, 
-																												 pMicSettings_ && pMicSettings_->enabledDuringCapture_, 
-																												 vrDevice_, pMicSettings_ ? pMicSettings_->micDeviceIdChosen_ : nullptr);
+				pMicSettings_ && pMicSettings_->enabledDuringCapture_, 
+				vrDevice_, pMicSettings_ ? pMicSettings_->micDeviceIdChosen_ : nullptr);
 			if (status != FBCAPTURE_STATUS_OK) {
 				DEBUG_ERROR_VAR("Audio encoding failed", std::to_string(status));
 				captureFailed(status);
@@ -1038,7 +1040,7 @@ namespace FBCapture {
 
 					flush_ = false;
 					if (captureInProgressType_ == FBCaptureType::kVod) {
-						status = pEncoder_->muxingData(pVodCaptureSettings_->projectionType_, pVodCaptureSettings_->stereoMode_, pVodCaptureSettings_->is360_);
+						status = pEncoder_->muxingData(pVodCaptureSettings_->projectionType_, pVodCaptureSettings_->stereoMode_, pVodCaptureSettings_->is360_, pVodCaptureSettings_->frameRate_);
 						if (status != FBCAPTURE_STATUS_OK) {
 							DEBUG_ERROR_VAR("Muxing failed", std::to_string(status));
 							captureFailed(status);
@@ -1047,7 +1049,7 @@ namespace FBCapture {
 					}
 
 					if (captureInProgressType_ == FBCaptureType::kLive) {
-						status = pEncoder_->muxingData(pLiveCaptureSettings_->projectionType_, pLiveCaptureSettings_->stereoMode_, pLiveCaptureSettings_->is360_);
+						status = pEncoder_->muxingData(pLiveCaptureSettings_->projectionType_, pLiveCaptureSettings_->stereoMode_, pLiveCaptureSettings_->is360_, 0);
 						if (status != FBCAPTURE_STATUS_OK) {
 							DEBUG_ERROR_VAR("Muxing failed", std::to_string(status));
 							captureFailed(status);
@@ -1128,6 +1130,8 @@ namespace FBCapture {
 					cameraThread_ = nullptr;
 					
 					doEncoderStopRoutine();
+
+					DEBUG_LOG_VAR("Total frames: ", to_string(totalFrames));
 
 					pPreviewCaptureSettings_.reset(nullptr);
 					pTextureFormatConversion_.reset(nullptr);
@@ -1295,15 +1299,18 @@ namespace FBCapture {
 
 				auto now = std::chrono::steady_clock::now();
 				auto encodeDiffSeconds =
-					std::chrono::duration_cast<std::chrono::milliseconds>(now -
-																																prevEncodeTime)
+					std::chrono::duration_cast<std::chrono::milliseconds>(now - prevEncodeTime)
 					.count() /
 					1000.0f; // millis per second
 				const float encodeCycle = getCaptureEncodeCycle(captureInProgressType_);
 
-				if (captureTextureReceieved_ && (encodeTime + encodeDiffSeconds) >= encodeCycle) {
-					encodeTime += (encodeDiffSeconds - encodeCycle);
+				// accept frames whenever received if in fixed frame rate mode
+				if ((frameReceived && pVodCaptureSettings_->fixedFrameDeltaTime_) || (!pVodCaptureSettings_->fixedFrameDeltaTime_ && captureTextureReceieved_ && (encodeTime + encodeDiffSeconds) >= encodeCycle)) {
+					frameReceived = false;
+					// no need to calculate the frame time in fixed frame rate mode
+					encodeTime += pVodCaptureSettings_->fixedFrameDeltaTime_ ? encodeCycle : (encodeDiffSeconds - encodeCycle);
 					prevEncodeTime = now;
+					totalFrames++;
 
 					doEncodeTextureRender(false);
 					if (!continueCapture_) {
@@ -1315,7 +1322,6 @@ namespace FBCapture {
 					const int videoFrameRate = isLive ? pLiveCaptureSettings_->frameRate_ : pVodCaptureSettings_->frameRate_;
 					const TCHAR* fullSavePath = isLive ? L"" : pVodCaptureSettings_->fullSavePath_.c_str();
 					status = pEncoder_->startEncoding(pEncodingTexture_, fullSavePath, isLive, videoBitRate, videoFrameRate, false);
-
 					if (status != FBCAPTURE_STATUS_OK) {
 						DEBUG_ERROR_VAR("Start encoding failed", std::to_string(status));
 						captureFailed(status);
@@ -1326,8 +1332,7 @@ namespace FBCapture {
 
 					if (isLive) {
 						auto flushDiffSeconds =
-							std::chrono::duration_cast<std::chrono::milliseconds>(now -
-																																		prevFlushTime)
+							std::chrono::duration_cast<std::chrono::milliseconds>(now - prevFlushTime)
 							.count() /
 							1000.0f; // millis per second
 
@@ -1348,7 +1353,8 @@ namespace FBCapture {
 					}
 				}
 
-				if (continueCapture_ && (encodeTime + encodeDiffSeconds) < encodeCycle) {
+				// don't sleep if in fixed frame rate mode
+				if (!pVodCaptureSettings_->fixedFrameDeltaTime_ && continueCapture_ && (encodeTime + encodeDiffSeconds) < encodeCycle) {
 					DWORD targetSleepMS = (encodeCycle - (encodeTime + encodeDiffSeconds)) * 1000; // millis per second
 					if (targetSleepMS > 0) targetSleepMS -= 1; // on the safe side
 					if (targetSleepMS > 0) Sleep(targetSleepMS);
@@ -1459,8 +1465,8 @@ extern "C" DllExport FBCapture::Common::FBCAPTURE_STATUS fbc_setLiveCaptureSetti
 	return fbCaptureSystem->setLiveCaptureSettings(width, height, frameRate, bitRate, flushCycleStart, flushCycleAfter, streamUrl, is360, verticalFlip, horizontalFlip, projectionType, stereoMode);
 }
 
-extern "C" DllExport FBCapture::Common::FBCAPTURE_STATUS fbc_setVodCaptureSettings(int width, int height, int frameRate, int bitRate, const TCHAR* fullSavePath, bool is360, bool verticalFlip, bool horizontalFlip, PROJECTIONTYPE projectionType, STEREO_MODE stereoMode) {
-	return fbCaptureSystem->setVodCaptureSettings(width, height, frameRate, bitRate, fullSavePath, is360, verticalFlip, horizontalFlip, projectionType, stereoMode);
+extern "C" DllExport FBCapture::Common::FBCAPTURE_STATUS fbc_setVodCaptureSettings(int width, int height, int frameRate, int bitRate, const TCHAR* fullSavePath, bool is360, bool verticalFlip, bool horizontalFlip, PROJECTIONTYPE projectionType, STEREO_MODE stereoMode, bool fixedFrameDeltaTime) {
+	return fbCaptureSystem->setVodCaptureSettings(width, height, frameRate, bitRate, fullSavePath, is360, verticalFlip, horizontalFlip, projectionType, stereoMode, fixedFrameDeltaTime);
 }
 
 extern "C" DllExport FBCapture::Common::FBCAPTURE_STATUS fbc_setPreviewCaptureSettings(int width, int height, int frameRate, bool is360, bool verticalFlip, bool horizontalFlip) {
