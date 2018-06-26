@@ -84,6 +84,8 @@ namespace FBCapture {
 			void resetResources();
 			void setGraphicsDeviceD3D11(ID3D11Device* device);
 			wstring generateLiveVideoFileWString();
+			int getQueueLength();
+			void drainQueue(); // processes frames held in the encode queue
 		};
 	}
 }

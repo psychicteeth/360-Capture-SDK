@@ -910,6 +910,11 @@ namespace FBCapture {
 			return FBCAPTURE_STATUS_OK;
 		}
 
+		bool FBCaptureSystem::isIdle()
+		{
+			return idle;
+		}
+		
 		bool FBCaptureSystem::activateCameraDevice(std::lock_guard<std::mutex> &lock) {
 			HRESULT hr = pCameraDevices_->activateDevice(pCameraSettings_->cameraDeviceIndexChosen_, &pCameraOverlay_->pCameraMediaSource_);
 			if (FAILED(hr))
@@ -1297,6 +1302,10 @@ namespace FBCapture {
 
 			while (continueCapture_ && captureInProgressType_ != FBCaptureType::kPreview) {
 
+				// drain the queue?
+				pEncoder_->drainQueue();
+				if (pEncoder_->getQueueLength() == 0) idle = true;
+
 				auto now = std::chrono::steady_clock::now();
 				auto encodeDiffSeconds =
 					std::chrono::duration_cast<std::chrono::milliseconds>(now - prevEncodeTime)
@@ -1321,6 +1330,7 @@ namespace FBCapture {
 					const int videoBitRate = isLive ? pLiveCaptureSettings_->videoBitRate_ : pVodCaptureSettings_->videoBitRate_;
 					const int videoFrameRate = isLive ? pLiveCaptureSettings_->frameRate_ : pVodCaptureSettings_->frameRate_;
 					const TCHAR* fullSavePath = isLive ? L"" : pVodCaptureSettings_->fullSavePath_.c_str();
+					idle = false;
 					status = pEncoder_->startEncoding(pEncodingTexture_, fullSavePath, isLive, videoBitRate, videoFrameRate, false);
 					if (status != FBCAPTURE_STATUS_OK) {
 						DEBUG_ERROR_VAR("Start encoding failed", std::to_string(status));
@@ -1551,6 +1561,10 @@ extern "C" DllExport FBCapture::Common::FBCAPTURE_STATUS fbc_startPreviewCapture
 
 extern "C" DllExport FBCapture::Common::FBCAPTURE_STATUS fbc_startScreenshot() {
 	return fbCaptureSystem->startScreenshot(FBCaptureType::kScreenShot);
+}
+
+extern "C" DllExport bool fbc_isIdle() {
+	return fbCaptureSystem->isIdle();
 }
 
 extern "C" DllExport FBCapture::Common::FBCAPTURE_STATUS fbc_captureTexture(void* texturePtr) {

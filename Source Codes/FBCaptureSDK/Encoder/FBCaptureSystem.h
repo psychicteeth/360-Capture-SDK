@@ -185,6 +185,7 @@ namespace FBCapture {
 			FBCAPTURE_STATUS previewCapture(void* texturePtr);
 			FBCAPTURE_STATUS previewCamera(void* texturePtr);
 			FBCAPTURE_STATUS saveScreenShot(void* texturePtr);
+			bool isIdle();
 			FBCAPTURE_STATUS getCaptureStatus();
 			FBCAPTURE_STATUS getScreenshotStatus();
 			GRAPHICS_CARD checkGPUManufacturer();
@@ -200,6 +201,7 @@ namespace FBCapture {
 			FBCAPTURE_STATUS initializeMicDevices();
 
 			bool initialized_ = {};
+			bool idle = true;
 			ScopedCOMPtr<ID3D11Device> pDevice_ = {};
 			ScopedCOMPtr<ID3D11DeviceContext> pContext_ = {};
 

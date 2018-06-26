@@ -212,6 +212,23 @@ namespace FBCapture {
       return liveVideoFile;
     }
 
+	int EncoderMain::getQueueLength()
+	{
+		if (this->nvidiaDevice && this->nvEncoder) {
+			return this->nvEncoder->getQueueLength();
+		}
+		if (this->amdDevice && this->amdEncoder) {
+			return 0;
+		}
+	}
+
+	void EncoderMain::drainQueue()
+	{
+		if (this->nvidiaDevice && this->nvEncoder) {
+			this->nvEncoder->checkQueue();
+		}
+	}
+
     FBCAPTURE_STATUS EncoderMain::startEncoding(const void* texturePtr, const TCHAR* fullSavePath, bool isLive, int bitrate, int fps, bool needFlipping) {
       FBCAPTURE_STATUS status = FBCAPTURE_STATUS_OK;
 

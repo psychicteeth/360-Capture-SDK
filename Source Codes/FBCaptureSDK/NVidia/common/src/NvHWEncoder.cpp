@@ -890,6 +890,7 @@ NVENCSTATUS CNvHWEncoder::ProcessOutput(const EncodeBuffer *pEncodeBuffer) {
     return NV_ENC_ERR_INVALID_PARAM;
   }
 
+  // if the processing is yet to complete on this frame we better stall until it's done
   if (pEncodeBuffer->stOutputBfr.bWaitOnEvent == TRUE) {
     if (!pEncodeBuffer->stOutputBfr.hOutputEvent) {
       return NV_ENC_ERR_INVALID_PARAM;

@@ -59,6 +59,16 @@ namespace FBCapture {
 				delete[] buffer_;
 			}
 
+			unsigned int freeSpace()
+			{
+				return size_ - pendingCount_;
+			}
+
+			unsigned int pendingCount()
+			{
+				return pendingCount_;
+			}
+
 			bool initialize(T *items, unsigned int size) {
 				size_ = size;
 				pendingCount_ = 0;
@@ -90,6 +100,15 @@ namespace FBCapture {
 				T *item = buffer_[pendingndex_];
 				pendingndex_ = (pendingndex_ + 1) % size_;
 				pendingCount_ -= 1;
+				return item;
+			}
+
+			T* peekPending() {
+				if (pendingCount_ == 0) {
+					return NULL;
+				}
+
+				T *item = buffer_[pendingndex_];
 				return item;
 			}
 		};
@@ -126,6 +145,11 @@ namespace FBCapture {
 			FBCAPTURE_STATUS saveScreenShot(const void* texturePtr, const wstring& fullSavePath, bool is360);  // Take screenshot																																																								
 			FBCAPTURE_STATUS flushInputTextures(); // Flush queued textures in buffers to create video
 			FBCAPTURE_STATUS initNVEncodingSession();			
+			int getQueueLength();
+			FBCAPTURE_STATUS checkQueue(bool all = false);
+			// Flush encoder
+			// This function will be called when encoding is done
+			NVENCSTATUS flushEncoder();
 
 		protected:
 			// To access the NVidia HW Encoder interfaces
@@ -162,11 +186,8 @@ namespace FBCapture {
 			NVENCSTATUS allocateIOBuffers(uint32_t uInputWidth, uint32_t uInputHeight, NV_ENC_BUFFER_FORMAT inputFormat);
 
 			// Copy textures to encode buffer
-			NVENCSTATUS	copyReources(uint32_t width, uint32_t height);
+			NVENCSTATUS	copyResources(uint32_t width, uint32_t height);
 
-			// Flush encoder
-			// This function will be called when encoding is done
-			NVENCSTATUS flushEncoder();
 
 			// Set all configurations need to be set for encoding
 			// It's called only once when starting encoding

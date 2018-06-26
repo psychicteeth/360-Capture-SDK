@@ -193,6 +193,7 @@ namespace FBCapture {
 			NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
 			// Initialize encode buffer
+			DEBUG_LOG_VAR("Creating queue of size: ", to_string(encodeBufferCount_));
 			encodeBufferQueue_.initialize(encodeBuffer_, encodeBufferCount_);
 			for (uint32_t i = 0; i < encodeBufferCount_; i++) {
 
@@ -232,7 +233,7 @@ namespace FBCapture {
 			return nvStatus;
 		}
 
-		NVENCSTATUS NVEncoder::copyReources(uint32_t width, uint32_t height) {
+		NVENCSTATUS NVEncoder::copyResources(uint32_t width, uint32_t height) {
 			NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 			D3D11_MAPPED_SUBRESOURCE resource = {};
 
@@ -370,7 +371,7 @@ namespace FBCapture {
 			}
 		
 			//Copy framebuffer to encoding buffers
-			nvStatus = copyReources(encodeConfig_.width, encodeConfig_.height);
+			nvStatus = copyResources(encodeConfig_.width, encodeConfig_.height);
 			if (nvStatus != NV_ENC_SUCCESS) {
 				DEBUG_ERROR("Failed on copying framebuffers to encode  input buffers");
 				return FBCAPTURE_STATUS_TEXTURE_RESOURCES_COPY_FAILED;
@@ -430,6 +431,31 @@ namespace FBCapture {
 			return nvStatus;
 		}
 
+		int NVEncoder::getQueueLength()
+		{
+			return encodeBufferQueue_.pendingCount();
+		}
+
+		FBCAPTURE_STATUS NVEncoder::checkQueue(bool all)
+		{
+			while (encodeBufferQueue_.pendingCount() > 0)
+			{
+				EncodeBuffer* pBuffer = encodeBufferQueue_.peekPending();
+				// if this item is finished then process it
+				if (!pBuffer->stOutputBfr.bWaitOnEvent && pBuffer->stOutputBfr.hOutputEvent)
+				{
+					NVENCSTATUS status = nvHWEncoder_->ProcessOutput(encodeBufferQueue_.getPending());
+					if (status != NV_ENC_SUCCESS)
+					{
+						DEBUG_ERROR_VAR("Failed on encoding frame queue. Error code:", nvidiaStatus[status]);
+					}
+				}
+
+				if (!all) break;
+			}
+			return FBCAPTURE_STATUS_OK;
+		}
+		
 		FBCAPTURE_STATUS NVEncoder::saveScreenShot(const void* texturePtr, const wstring& fullSavePath, bool is360) {
 			HRESULT hr = E_FAIL;
 			FBCAPTURE_STATUS status = FBCAPTURE_STATUS_OK;
