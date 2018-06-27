@@ -702,6 +702,7 @@ namespace FBCapture {
 			if (result == FBCAPTURE_STATUS_OK) {
 				captureTextureReceieved_ = true;
 				frameReceived = true;
+				idle = false;
 			} else {
 				captureFailed(result);
 				stopCapture();
@@ -1303,8 +1304,14 @@ namespace FBCapture {
 			while (continueCapture_ && captureInProgressType_ != FBCaptureType::kPreview) {
 
 				// drain the queue?
-				pEncoder_->drainQueue();
-				if (pEncoder_->getQueueLength() == 0) idle = true;
+				if (pEncoder_->getQueueLength() > 0)
+				{
+					pEncoder_->drainQueue();
+				}
+				if (pEncoder_->getQueueLength() == 0)
+				{
+					idle = true;
+				}
 
 				auto now = std::chrono::steady_clock::now();
 				auto encodeDiffSeconds =

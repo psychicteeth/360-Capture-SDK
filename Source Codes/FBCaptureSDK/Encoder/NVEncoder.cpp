@@ -193,7 +193,6 @@ namespace FBCapture {
 			NVENCSTATUS nvStatus = NV_ENC_SUCCESS;
 
 			// Initialize encode buffer
-			DEBUG_LOG_VAR("Creating queue of size: ", to_string(encodeBufferCount_));
 			encodeBufferQueue_.initialize(encodeBuffer_, encodeBufferCount_);
 			for (uint32_t i = 0; i < encodeBufferCount_; i++) {
 
